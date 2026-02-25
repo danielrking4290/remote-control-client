@@ -7,6 +7,7 @@ import { useMutableValue } from "../hooks/useMutableValue";
 export const MainScreen: React.FC = () => {
   const MOUSE_DOWN_HOLD_THRESHOLD = 750;
   const MOUSE_DOWN_HOLD_MOVE_THRESHOLD = 10;
+  const JUMP_THRESHOLD = 40;
 
   const inputRef = useRef<TextInput>(null);
   const [inputVisible, setInputVisible] = useState(false);
@@ -14,7 +15,8 @@ export const MainScreen: React.FC = () => {
 
   const lastMoveTime = useMutableValue(Date.now());
   const lastKeyPressTime = useMutableValue(Date.now());
-  const lastClickTime = useMutableValue(Date.now());
+  const timeTouchStarted = useMutableValue(Date.now());
+  const timeLastRightClickOccurred = useMutableValue(Date.now());
 
   const lastKeyPressed = useMutableValue("");
 
@@ -25,8 +27,12 @@ export const MainScreen: React.FC = () => {
   const lastPosition = useMutableValue<Point>({ x: -1, y: -1 });
   const dx = useMutableValue(0);
   const dy = useMutableValue(0);
+  const lastDx = useMutableValue(0);
+  const lastDy = useMutableValue(0);
 
   const currentlyHandlingPanResponseGrant = useMutableValue(false);
+
+  const wasTwoFingerGesture = useMutableValue(false);
 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -35,7 +41,7 @@ export const MainScreen: React.FC = () => {
       currentlyHandlingPanResponseGrant.set(true);
 
       lastMoveTime.set(Date.now());
-      lastClickTime.set(Date.now());
+      timeTouchStarted.set(Date.now());
 
       lastPosition.set({ x: -1, y: -1 });
 
@@ -46,6 +52,7 @@ export const MainScreen: React.FC = () => {
       currentlyHandlingPanResponseGrant.set(false);
     },
     onPanResponderMove: async (_, gestureState) => {
+      wasTwoFingerGesture.set(gestureState.numberActiveTouches === 2);
       const now = Date.now();
       const timeDiff = now - lastMoveTime.get();
 
@@ -78,13 +85,23 @@ export const MainScreen: React.FC = () => {
           lastPosition.set(currentPosition);
         }
 
-        dx.set(dx.get() + (currentPosition.x - lastPosition.get().x));
-        dy.set(dy.get() + (currentPosition.y - lastPosition.get().y));
+        dx.set(Math.round(dx.get() + (currentPosition.x - lastPosition.get().x)));
+        dy.set(Math.round(dy.get() + (currentPosition.y - lastPosition.get().y)));
 
         lastPosition.set(currentPosition);
 
-        if (Math.round(dx.get()) !== 0 || Math.round(dy.get()) !== 0) {
-          apiService.moveMouse(Math.round(dx.get()), Math.round(dy.get()));
+        if (dx.get() !== 0 || dy.get() !== 0) {
+          switch (gestureState.numberActiveTouches) {
+            case 1:
+              apiService.moveMouse(dx.get(), dy.get());
+              break;
+            case 2:
+              if (Math.abs(dx.get() - lastDx.get()) < JUMP_THRESHOLD &&
+                Math.abs(dy.get() - lastDy.get()) < JUMP_THRESHOLD) {
+                apiService.scrollMouse(dx.get(), dy.get());
+              }
+              break;
+          }
 
           if (Math.round(dx.get()) !== 0) {
             dx.set(0);
@@ -94,16 +111,25 @@ export const MainScreen: React.FC = () => {
             dy.set(0);
           }
         }
+
+        lastDx.set(dx.get());
+        lastDy.set(dy.get());
       }
     },
-    onPanResponderRelease: async () => {
+    onPanResponderRelease: async (event, gestureState) => {
       if (isHolding.get()) {
         await apiService.mouseUp();
         isHolding.set(false);
-      } else if (Date.now() - lastClickTime.get() < 200) {
-        apiService.clickMouse();
+      } else if (Date.now() - timeTouchStarted.get() < 200 && gestureState.dx < 10 && gestureState.dy < 10) {
+        if (wasTwoFingerGesture.get()) {
+          if (Date.now() - timeLastRightClickOccurred.get() > 200) {
+            apiService.rightClickMouse();
+            timeLastRightClickOccurred.set(Date.now());
+          }
+        } else {
+          apiService.clickMouse();
+        }
       }
-
       holdStartTime.set(-1);
       holdStartPosition.set({ x: -1, y: -1 });
     },
@@ -161,14 +187,16 @@ export const MainScreen: React.FC = () => {
       </View>
       <View style={styles.bottomContainer}>
         {!inputVisible && (
-          <TouchableOpacity
-            style={styles.keyboardButton}
-            onPress={() => {
-              setInputValue("");
-              setInputVisible(true);
-            }}>
-            <Text style={styles.buttonText}>Show Keyboard</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.keyboardButton}
+              onPress={() => {
+                setInputValue("");
+                setInputVisible(true);
+              }}>
+              <Text style={styles.buttonText}>Show Keyboard</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -193,6 +221,14 @@ const styles = StyleSheet.create({
   },
   keyboardButton: {
     backgroundColor: "#4287f5",
+    padding: 10,
+    borderRadius: 5,
+    margin: 10,
+    width: "90%",
+    alignSelf: "center"
+  },
+  scrollButton: {
+    backgroundColor: "#42f554",
     padding: 10,
     borderRadius: 5,
     margin: 10,

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Point } from '../interfaces/point';
-const API_BASE_URL = 'http://192.168.0.123:3000';
+const API_BASE_URL = 'http://192.168.50.119:3000';
 
 export interface TypeKeyResponse {
   message: string;
@@ -86,6 +86,15 @@ class ApiService {
       return response.data;
     } catch (error) {
       console.error('Error getting screen size:', error);
+      throw error;
+    }
+  }
+
+  async scrollMouse(dx: number, dy: number): Promise<void> {
+    try {
+      await axios.post(`${this.baseUrl}/scroll-mouse`, { dx, dy });
+    } catch (error) {
+      console.error('Error scrolling mouse:', error);
       throw error;
     }
   }
