@@ -5,9 +5,12 @@ import { Point } from "../interfaces/point";
 import { useMutableValue } from "../hooks/useMutableValue";
 
 export const MainScreen: React.FC = () => {
-  const MOUSE_DOWN_HOLD_THRESHOLD = 750;
-  const MOUSE_DOWN_HOLD_MOVE_THRESHOLD = 10;
-  const JUMP_THRESHOLD = 40;
+  const MOUSE_DOWN_HOLD_THRESHOLD_MS = 750;
+  const MOUSE_DOWN_HOLD_MOVE_THRESHOLD_MS = 10;
+  const JUMP_THRESHOLD_MS = 40;
+  const MINIMUM_MS_BETWEEN_RELEASES = 50;
+  const TAP_DETECTION_MS_THRESHOLD = 100;
+  const MINIMUM_MS_BETWEEN_RIGHT_CLICKS = 200;
 
   const inputRef = useRef<TextInput>(null);
   const [inputVisible, setInputVisible] = useState(false);
@@ -15,7 +18,7 @@ export const MainScreen: React.FC = () => {
 
   const lastMoveTime = useMutableValue(Date.now());
   const lastKeyPressTime = useMutableValue(Date.now());
-  const timeTouchStarted = useMutableValue(Date.now());
+  const timeGestureStarted = useMutableValue(Date.now());
   const timeLastRightClickOccurred = useMutableValue(Date.now());
 
   const lastKeyPressed = useMutableValue("");
@@ -31,6 +34,7 @@ export const MainScreen: React.FC = () => {
   const lastDy = useMutableValue(0);
 
   const currentlyHandlingPanResponseGrant = useMutableValue(false);
+  const timeOfLastPanResponderRelease = useMutableValue(Date.now());
 
   const wasTwoFingerGesture = useMutableValue(false);
 
@@ -41,7 +45,7 @@ export const MainScreen: React.FC = () => {
       currentlyHandlingPanResponseGrant.set(true);
 
       lastMoveTime.set(Date.now());
-      timeTouchStarted.set(Date.now());
+      timeGestureStarted.set(Date.now());
 
       lastPosition.set({ x: -1, y: -1 });
 
@@ -66,8 +70,8 @@ export const MainScreen: React.FC = () => {
           Math.pow(currentPos.y - holdStartPos.y, 2)
         );
 
-        if (holdDuration > MOUSE_DOWN_HOLD_THRESHOLD &&
-          movementDistance < MOUSE_DOWN_HOLD_MOVE_THRESHOLD) {
+        if (holdDuration > MOUSE_DOWN_HOLD_THRESHOLD_MS &&
+          movementDistance < MOUSE_DOWN_HOLD_MOVE_THRESHOLD_MS) {
           isHolding.set(true);
           Vibration.vibrate(50);
           await apiService.mouseDown();
@@ -96,8 +100,8 @@ export const MainScreen: React.FC = () => {
               apiService.moveMouse(dx.get(), dy.get());
               break;
             case 2:
-              if (Math.abs(dx.get() - lastDx.get()) < JUMP_THRESHOLD &&
-                Math.abs(dy.get() - lastDy.get()) < JUMP_THRESHOLD) {
+              if (Math.abs(dx.get() - lastDx.get()) < JUMP_THRESHOLD_MS &&
+                Math.abs(dy.get() - lastDy.get()) < JUMP_THRESHOLD_MS) {
                 apiService.scrollMouse(dx.get(), dy.get());
               }
               break;
@@ -116,13 +120,21 @@ export const MainScreen: React.FC = () => {
         lastDy.set(dy.get());
       }
     },
-    onPanResponderRelease: async (event, gestureState) => {
+    onPanResponderRelease: async () => {
+      const msSinceLastRelease = Date.now() - timeOfLastPanResponderRelease.get();
+      const msSinceGestureStarted = Date.now() - timeGestureStarted.get();
+      const msSinceLastRightClick = Date.now() - timeLastRightClickOccurred.get();
+
+      if (msSinceLastRelease < MINIMUM_MS_BETWEEN_RELEASES) {
+        return;
+      }
+
       if (isHolding.get()) {
         await apiService.mouseUp();
         isHolding.set(false);
-      } else if (Date.now() - timeTouchStarted.get() < 200 && gestureState.dx < 10 && gestureState.dy < 10) {
+      } else if (msSinceGestureStarted < TAP_DETECTION_MS_THRESHOLD) {
         if (wasTwoFingerGesture.get()) {
-          if (Date.now() - timeLastRightClickOccurred.get() > 200) {
+          if (msSinceLastRightClick > MINIMUM_MS_BETWEEN_RIGHT_CLICKS) {
             apiService.rightClickMouse();
             timeLastRightClickOccurred.set(Date.now());
           }
@@ -132,6 +144,7 @@ export const MainScreen: React.FC = () => {
       }
       holdStartTime.set(-1);
       holdStartPosition.set({ x: -1, y: -1 });
+      timeOfLastPanResponderRelease.set(Date.now());
     },
     onPanResponderTerminate: async () => {
       if (isHolding.get()) {
