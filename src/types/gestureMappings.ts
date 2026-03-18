@@ -1,0 +1,35 @@
+
+export type GestureType =
+  | "ONE_FINGER_TAP"
+  | "TWO_FINGER_TAP"
+  | "TWO_FINGER_SWIPE_UP"
+  | "TWO_FINGER_SWIPE_DOWN"
+  | "TWO_FINGER_SWIPE_LEFT"
+  | "TWO_FINGER_SWIPE_RIGHT"
+  | "THREE_FINGER_TAP"
+  | "THREE_FINGER_SWIPE_UP"
+  | "THREE_FINGER_SWIPE_DOWN"
+  | "THREE_FINGER_SWIPE_LEFT"
+  | "THREE_FINGER_SWIPE_RIGHT";
+
+export type Action =
+  | "LEFT_CLICK_MOUSE"
+  | "RIGHT_CLICK_MOUSE"
+  | "SWITCH_WINDOW"
+  | "TASK_VIEW"
+  | "CLOSE_WINDOW"
+  | "REFRESH_PAGE"
+  | "MEDIA_NEXT"
+  | "MEDIA_PREVIOUS"
+  | "MEDIA_PLAY_PAUSE"
+  | "MEDIA_VOLUME_UP"
+  | "MEDIA_VOLUME_DOWN"
+  | "SCROLL_UP"
+  | "SCROLL_DOWN"
+  | "SCROLL_LEFT"
+  | "SCROLL_RIGHT"
+  | "NONE";
+
+export type GestureMappings = Record<GestureType, Action>;
+
+

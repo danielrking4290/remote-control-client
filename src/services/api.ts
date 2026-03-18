@@ -98,6 +98,42 @@ class ApiService {
       throw error;
     }
   }
+
+  async switchWindow(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/switch-window`);
+    } catch (error) {
+      console.error('Error switching window:', error);
+      throw error;
+    }
+  }
+
+  async closeWindow(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/close-window`);
+    } catch (error) {
+      console.error('Error closing window:', error);
+      throw error;
+    }
+  }
+
+  async viewAllWindows(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/view-all-windows`);
+    } catch (error) {
+      console.error('Error viewing all windows:', error);
+      throw error;
+    }
+  }
+
+  async refreshPage(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/refresh-page`);
+    } catch (error) {
+      console.error('Error refreshing page:', error);
+      throw error;
+    }
+  }
 }
 
 export const apiService = new ApiService();
