@@ -15,10 +15,22 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
   const MOUSE_DOWN_HOLD_MOVE_THRESHOLD_MS = 10;
   const JUMP_THRESHOLD_MS = 40;
   const MINIMUM_MS_BETWEEN_RELEASES = 50;
-  const TAP_DETECTION_MS_THRESHOLD = 100;
+  /** Max touch duration (ms) to count as tap; relaxed so natural taps (~150–200ms) are not missed */
+  const TAP_DETECTION_MS_THRESHOLD = 220;
+  /** Max total movement (px) for one-finger to count as tap; above this = swipe (no action) */
+  const ONE_FINGER_TAP_MAX_MOVEMENT_PX = 28;
   const MINIMUM_MS_BETWEEN_RIGHT_CLICKS = 200;
   const THREE_FINGER_SWIPE_UP_THRESHOLD_PX = 50;
   const THREE_FINGER_SWIPE_DOWN_THRESHOLD_PX = 50;
+  const THREE_FINGER_SWIPE_LEFT_THRESHOLD_PX = 50;
+  const THREE_FINGER_SWIPE_RIGHT_THRESHOLD_PX = 50;
+  const TWO_FINGER_SWIPE_THRESHOLD_PX = 50;
+  /** Pixels of vertical swipe per volume step (continuous volume). */
+  const VOLUME_PX_PER_STEP = 18;
+  /** Scale down 2-finger scroll deltas to avoid “jumpy” large steps. */
+  const TWO_FINGER_SCROLL_DELTA_DIVISOR = 3;
+  /** Ignore tiny jitter when determining 2-finger scroll updates. */
+  const TWO_FINGER_SCROLL_DEADBAND_PX = 0.4;
 
   const inputRef = useRef<TextInput>(null);
   const [inputVisible, setInputVisible] = useState(false);
@@ -46,7 +58,20 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
 
   const wasTwoFingerGesture = useMutableValue(false);
   const wasThreeFingerGesture = useMutableValue(false);
+  /** True if this gesture ever had 2+ fingers (hold is one-finger only). */
+  const gestureEverHadMultipleFingers = useMutableValue(false);
+  /** Previous active touch count, used to reset deltas when finger count changes. */
+  const lastActiveTouchCount = useMutableValue(0);
+  const twoFingerSwipeDx = useMutableValue(0);
+  const twoFingerSwipeDy = useMutableValue(0);
+  const threeFingerSwipeDx = useMutableValue(0);
   const threeFingerSwipeDy = useMutableValue(0);
+  /** Total movement this gesture for one-finger (to distinguish tap vs swipe). */
+  const oneFingerTotalDx = useMutableValue(0);
+  const oneFingerTotalDy = useMutableValue(0);
+  /** Volume steps already sent this gesture (so we send continuously during swipe). */
+  const volumeUpStepsSentThisGesture = useMutableValue(0);
+  const volumeDownStepsSentThisGesture = useMutableValue(0);
 
   const { getActionForGesture } = useGestureMappings();
   const getActionRef = useRef(getActionForGesture);
@@ -65,6 +90,16 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
       case "TASK_VIEW": apiService.viewAllWindows(); break;
       case "CLOSE_WINDOW": apiService.closeWindow(); break;
       case "REFRESH_PAGE": apiService.refreshPage(); break;
+      case "MEDIA_NEXT": apiService.mediaNext(); break;
+      case "MEDIA_PREVIOUS": apiService.mediaPrevious(); break;
+      case "MEDIA_PLAY_PAUSE": apiService.mediaPlayPause(); break;
+      case "MEDIA_VOLUME_UP": apiService.mediaVolumeUp(); break;
+      case "MEDIA_VOLUME_DOWN": apiService.mediaVolumeDown(); break;
+      case "SCROLL_UP": apiService.scrollUp(); break;
+      case "SCROLL_DOWN": apiService.scrollDown(); break;
+      case "SCROLL_LEFT": apiService.scrollLeft(); break;
+      case "SCROLL_RIGHT": apiService.scrollRight(); break;
+      case "NONE": break;
       default: break;
     }
   }, []);
@@ -86,7 +121,18 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
       timeGestureStarted.set(Date.now());
 
       lastPosition.set({ x: -1, y: -1 });
+      twoFingerSwipeDx.set(0);
+      twoFingerSwipeDy.set(0);
+      threeFingerSwipeDx.set(0);
       threeFingerSwipeDy.set(0);
+      oneFingerTotalDx.set(0);
+      oneFingerTotalDy.set(0);
+      volumeUpStepsSentThisGesture.set(0);
+      volumeDownStepsSentThisGesture.set(0);
+      gestureEverHadMultipleFingers.set(false);
+      wasTwoFingerGesture.set(false);
+      wasThreeFingerGesture.set(false);
+      lastActiveTouchCount.set(gestureState.numberActiveTouches);
 
       holdStartTime.set(Date.now());
       holdStartPosition.set({ x: gestureState.x0, y: gestureState.y0 });
@@ -95,12 +141,37 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
       currentlyHandlingPanResponseGrant.set(false);
     },
     onPanResponderMove: async (_, gestureState) => {
-      wasTwoFingerGesture.set(gestureState.numberActiveTouches === 2);
-      wasThreeFingerGesture.set(gestureState.numberActiveTouches === 3);
+      const touchCount = gestureState.numberActiveTouches;
+      if (gestureState.numberActiveTouches >= 2) {
+        gestureEverHadMultipleFingers.set(true);
+      }
+
+      // If the user changes the finger count mid-gesture (e.g. 1 -> 2),
+      // reset our delta baselines for smooth scrolling and to avoid sign flips.
+      if (touchCount !== lastActiveTouchCount.get()) {
+        lastActiveTouchCount.set(touchCount);
+        const currentPosition = { x: gestureState.moveX, y: gestureState.moveY };
+        lastPosition.set(currentPosition);
+        dx.set(0);
+        dy.set(0);
+        lastDx.set(0);
+        lastDy.set(0);
+        twoFingerSwipeDx.set(0);
+        twoFingerSwipeDy.set(0);
+        threeFingerSwipeDx.set(0);
+        threeFingerSwipeDy.set(0);
+        // Don't emit an action on the transition frame.
+        lastMoveTime.set(Date.now());
+        return;
+      }
+
+      wasTwoFingerGesture.set(touchCount === 2);
+      wasThreeFingerGesture.set(touchCount === 3);
       const now = Date.now();
       const timeDiff = now - lastMoveTime.get();
 
-      if (!isHolding.get() && holdStartTime.get() !== -1) {
+      // Hold (mouse down) only for one-finger-only gestures; never trigger if this gesture ever had 2+ fingers
+      if (gestureState.numberActiveTouches === 1 && !gestureEverHadMultipleFingers.get() && !isHolding.get() && holdStartTime.get() !== -1) {
         const holdDuration = now - holdStartTime.get();
         const holdStartPos = holdStartPosition.get();
         const currentPos = { x: gestureState.moveX, y: gestureState.moveY };
@@ -135,17 +206,55 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
         if (dx.get() !== 0 || dy.get() !== 0) {
           switch (gestureState.numberActiveTouches) {
             case 1:
-              apiService.moveMouse(dx.get(), dy.get());
-              break;
-            case 2:
-              if (Math.abs(dx.get() - lastDx.get()) < JUMP_THRESHOLD_MS &&
-                Math.abs(dy.get() - lastDy.get()) < JUMP_THRESHOLD_MS) {
-                apiService.scrollMouse(dx.get(), dy.get());
+              oneFingerTotalDx.set(oneFingerTotalDx.get() + (currentPosition.x - lastPosition.get().x));
+              oneFingerTotalDy.set(oneFingerTotalDy.get() + (currentPosition.y - lastPosition.get().y));
+              // If the current gesture ever had 2+ fingers, we are in a multi-touch gesture
+              // (e.g. 2-finger scroll). In that case, do not move the mouse when touch count
+              // temporarily drops to 1, otherwise we get “wild jumps”.
+              if (!gestureEverHadMultipleFingers.get()) {
+                apiService.moveMouse(dx.get(), dy.get());
               }
               break;
-            case 3:
-              threeFingerSwipeDy.set(threeFingerSwipeDy.get() + (currentPosition.y - lastPosition.get().y));
+            case 2: {
+              twoFingerSwipeDx.set(twoFingerSwipeDx.get() + (currentPosition.x - lastPosition.get().x));
+              twoFingerSwipeDy.set(twoFingerSwipeDy.get() + (currentPosition.y - lastPosition.get().y));
+              const scrollActions: Action[] = ["SCROLL_UP", "SCROLL_DOWN", "SCROLL_LEFT", "SCROLL_RIGHT"];
+              const twoFingerSwipeGestures: GestureType[] = ["TWO_FINGER_SWIPE_UP", "TWO_FINGER_SWIPE_DOWN", "TWO_FINGER_SWIPE_LEFT", "TWO_FINGER_SWIPE_RIGHT"];
+              const twoFingerMappedToScroll = twoFingerSwipeGestures.some((g) => scrollActions.includes(getActionRef.current(g)));
+              // Use per-frame finger deltas instead of `dx/dy` + `lastDx/lastDy` gating.
+              // The old gating could skip frames when the delta exceeded `JUMP_THRESHOLD_MS`,
+              // producing a “jumpy” scroll.
+              if (twoFingerMappedToScroll) {
+                const deltaX = currentPosition.x - lastPosition.get().x;
+                const deltaY = currentPosition.y - lastPosition.get().y;
+                if (Math.abs(deltaX) >= TWO_FINGER_SCROLL_DEADBAND_PX || Math.abs(deltaY) >= TWO_FINGER_SCROLL_DEADBAND_PX) {
+                  apiService.scrollMouse(deltaX / TWO_FINGER_SCROLL_DELTA_DIVISOR, deltaY / TWO_FINGER_SCROLL_DELTA_DIVISOR);
+                }
+              }
               break;
+            }
+            case 3: {
+              threeFingerSwipeDx.set(threeFingerSwipeDx.get() + (currentPosition.x - lastPosition.get().x));
+              threeFingerSwipeDy.set(threeFingerSwipeDy.get() + (currentPosition.y - lastPosition.get().y));
+              const thdY = threeFingerSwipeDy.get();
+              if (getActionRef.current("THREE_FINGER_SWIPE_UP") === "MEDIA_VOLUME_UP" && thdY < 0) {
+                const stepsUp = Math.floor(-thdY / VOLUME_PX_PER_STEP);
+                const delta = stepsUp - volumeUpStepsSentThisGesture.get();
+                if (delta > 0) {
+                  apiService.mediaVolumeUp(delta);
+                  volumeUpStepsSentThisGesture.set(stepsUp);
+                }
+              }
+              if (getActionRef.current("THREE_FINGER_SWIPE_DOWN") === "MEDIA_VOLUME_DOWN" && thdY > 0) {
+                const stepsDown = Math.floor(thdY / VOLUME_PX_PER_STEP);
+                const delta = stepsDown - volumeDownStepsSentThisGesture.get();
+                if (delta > 0) {
+                  apiService.mediaVolumeDown(delta);
+                  volumeDownStepsSentThisGesture.set(stepsDown);
+                }
+              }
+              break;
+            }
           }
 
           if (Math.round(dx.get()) !== 0) {
@@ -175,21 +284,57 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
         isHolding.set(false);
       } else {
         let gestureType: GestureType | null = null;
-        if (wasThreeFingerGesture.get() && threeFingerSwipeDy.get() < -THREE_FINGER_SWIPE_UP_THRESHOLD_PX) {
-          gestureType = "THREE_FINGER_SWIPE_UP";
-        } else if (wasThreeFingerGesture.get() && threeFingerSwipeDy.get() > THREE_FINGER_SWIPE_DOWN_THRESHOLD_PX) {
-          gestureType = "THREE_FINGER_SWIPE_DOWN";
+        const dx2 = twoFingerSwipeDx.get();
+        const dy2 = twoFingerSwipeDy.get();
+        const dx3 = threeFingerSwipeDx.get();
+        const dy3 = threeFingerSwipeDy.get();
+        const twoFingerSwipeDist = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        const threeFingerSwipeDistVert = Math.abs(dy3);
+        const threeFingerSwipeDistHorz = Math.abs(dx3);
+
+        if (wasTwoFingerGesture.get() && twoFingerSwipeDist >= TWO_FINGER_SWIPE_THRESHOLD_PX) {
+          if (Math.abs(dy2) >= Math.abs(dx2)) {
+            gestureType = dy2 < 0 ? "TWO_FINGER_SWIPE_UP" : "TWO_FINGER_SWIPE_DOWN";
+          } else {
+            gestureType = dx2 < 0 ? "TWO_FINGER_SWIPE_LEFT" : "TWO_FINGER_SWIPE_RIGHT";
+          }
+        } else if (wasThreeFingerGesture.get() && (threeFingerSwipeDistVert >= THREE_FINGER_SWIPE_UP_THRESHOLD_PX || threeFingerSwipeDistHorz >= THREE_FINGER_SWIPE_LEFT_THRESHOLD_PX)) {
+          if (threeFingerSwipeDistVert >= threeFingerSwipeDistHorz) {
+            gestureType = dy3 < 0 ? "THREE_FINGER_SWIPE_UP" : "THREE_FINGER_SWIPE_DOWN";
+          } else {
+            gestureType = dx3 < 0 ? "THREE_FINGER_SWIPE_LEFT" : "THREE_FINGER_SWIPE_RIGHT";
+          }
         } else if (msSinceGestureStarted < TAP_DETECTION_MS_THRESHOLD) {
           if (wasTwoFingerGesture.get())
             gestureType = "TWO_FINGER_TAP";
           else if (wasThreeFingerGesture.get())
             gestureType = "THREE_FINGER_TAP";
-          else
-            gestureType = "ONE_FINGER_TAP";
+          else {
+            // Don't treat it as a one-finger tap if this gesture ever had 2+ fingers.
+            if (gestureEverHadMultipleFingers.get()) {
+              gestureType = null;
+            } else {
+            const oneFingerDist = Math.sqrt(oneFingerTotalDx.get() ** 2 + oneFingerTotalDy.get() ** 2);
+            if (oneFingerDist <= ONE_FINGER_TAP_MAX_MOVEMENT_PX)
+              gestureType = "ONE_FINGER_TAP";
+            }
+          }
         }
         if (gestureType) {
           const action = getActionRef.current(gestureType);
-          actionRunnerRef.current(action);
+          const isVolumeUpSwipe = (gestureType === "THREE_FINGER_SWIPE_UP" || gestureType === "THREE_FINGER_SWIPE_DOWN") && action === "MEDIA_VOLUME_UP";
+          const isVolumeDownSwipe = (gestureType === "THREE_FINGER_SWIPE_UP" || gestureType === "THREE_FINGER_SWIPE_DOWN") && action === "MEDIA_VOLUME_DOWN";
+          if (isVolumeUpSwipe) {
+            const totalSteps = Math.max(1, Math.floor(threeFingerSwipeDistVert / VOLUME_PX_PER_STEP));
+            const remainder = totalSteps - volumeUpStepsSentThisGesture.get();
+            if (remainder > 0) apiService.mediaVolumeUp(remainder);
+          } else if (isVolumeDownSwipe) {
+            const totalSteps = Math.max(1, Math.floor(threeFingerSwipeDistVert / VOLUME_PX_PER_STEP));
+            const remainder = totalSteps - volumeDownStepsSentThisGesture.get();
+            if (remainder > 0) apiService.mediaVolumeDown(remainder);
+          } else {
+            actionRunnerRef.current(action);
+          }
         }
       }
       holdStartTime.set(-1);

@@ -134,6 +134,72 @@ class ApiService {
       throw error;
     }
   }
+
+  async mediaNext(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/media-next`);
+    } catch (error) {
+      console.error('Error media next:', error);
+      throw error;
+    }
+  }
+
+  async mediaPrevious(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/media-previous`);
+    } catch (error) {
+      console.error('Error media previous:', error);
+      throw error;
+    }
+  }
+
+  async mediaPlayPause(): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/media-play-pause`);
+    } catch (error) {
+      console.error('Error media play/pause:', error);
+      throw error;
+    }
+  }
+
+  async mediaVolumeUp(steps: number = 1): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/media-volume-up`, {
+        params: steps > 1 ? { steps } : {}
+      });
+    } catch (error) {
+      console.error('Error media volume up:', error);
+      throw error;
+    }
+  }
+
+  async mediaVolumeDown(steps: number = 1): Promise<void> {
+    try {
+      await axios.get(`${this.baseUrl}/media-volume-down`, {
+        params: steps > 1 ? { steps } : {}
+      });
+    } catch (error) {
+      console.error('Error media volume down:', error);
+      throw error;
+    }
+  }
+
+  /** Discrete scroll step (uses scroll-mouse with fixed delta). */
+  async scrollUp(): Promise<void> {
+    await this.scrollMouse(0, 3);
+  }
+
+  async scrollDown(): Promise<void> {
+    await this.scrollMouse(0, -3);
+  }
+
+  async scrollLeft(): Promise<void> {
+    await this.scrollMouse(-3, 0);
+  }
+
+  async scrollRight(): Promise<void> {
+    await this.scrollMouse(3, 0);
+  }
 }
 
 export const apiService = new ApiService();

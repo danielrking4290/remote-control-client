@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import type { GestureType, Action, GestureMappings } from "../types/gestureMappings";
 import { ImageSourcePropType } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 
 interface GestureMappingsContextValue {
   mappings: GestureMappings;
@@ -23,6 +24,51 @@ const DefaultGestureMappings: GestureMappings = {
   TWO_FINGER_SWIPE_LEFT: "SCROLL_RIGHT",
   TWO_FINGER_SWIPE_RIGHT: "SCROLL_LEFT"
 };
+
+const GESTURE_MAPPINGS_FILENAME = "gesture-mappings.json";
+
+const VALID_GESTURE_TYPES: GestureType[] = [
+  "ONE_FINGER_TAP", "TWO_FINGER_TAP", "THREE_FINGER_TAP",
+  "TWO_FINGER_SWIPE_UP", "TWO_FINGER_SWIPE_DOWN", "TWO_FINGER_SWIPE_LEFT", "TWO_FINGER_SWIPE_RIGHT",
+  "THREE_FINGER_SWIPE_UP", "THREE_FINGER_SWIPE_DOWN", "THREE_FINGER_SWIPE_LEFT", "THREE_FINGER_SWIPE_RIGHT"
+];
+
+const VALID_ACTIONS: Action[] = [
+  "LEFT_CLICK_MOUSE", "RIGHT_CLICK_MOUSE", "SWITCH_WINDOW", "TASK_VIEW", "CLOSE_WINDOW",
+  "REFRESH_PAGE", "MEDIA_NEXT", "MEDIA_PREVIOUS", "MEDIA_PLAY_PAUSE", "MEDIA_VOLUME_UP", "MEDIA_VOLUME_DOWN",
+  "SCROLL_UP", "SCROLL_DOWN", "SCROLL_LEFT", "SCROLL_RIGHT", "NONE"
+];
+
+function isValidGestureMappings(obj: unknown): obj is GestureMappings {
+  if (obj === null || typeof obj !== "object") return false;
+  const o = obj as Record<string, unknown>;
+  for (const g of VALID_GESTURE_TYPES) {
+    if (!VALID_ACTIONS.includes(o[g] as Action)) return false;
+  }
+  return Object.keys(o).length === VALID_GESTURE_TYPES.length;
+}
+
+async function loadMappingsFromFile(): Promise<GestureMappings | null> {
+  try {
+    const path = FileSystem.documentDirectory + GESTURE_MAPPINGS_FILENAME;
+    const exists = await FileSystem.getInfoAsync(path, { size: false });
+    if (!exists.exists) return null;
+    const raw = await FileSystem.readAsStringAsync(path);
+    const parsed = JSON.parse(raw) as unknown;
+    return isValidGestureMappings(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveMappingsToFile(mappings: GestureMappings): Promise<void> {
+  try {
+    const path = FileSystem.documentDirectory + GESTURE_MAPPINGS_FILENAME;
+    await FileSystem.writeAsStringAsync(path, JSON.stringify(mappings, null, 2));
+  } catch {
+    // Ignore write errors (e.g. storage full)
+  }
+}
 
 const SwipeGestureDirectionalPairs: [GestureType, GestureType][] = [
   ["TWO_FINGER_SWIPE_UP", "TWO_FINGER_SWIPE_DOWN"],
@@ -129,6 +175,24 @@ export function getIconForAction(action: Action): ImageSourcePropType | undefine
 
 export function GestureMappingsProvider({ children }: { children: ReactNode }) {
   const [mappings, setMappings] = useState<GestureMappings>(() => ({ ...DefaultGestureMappings }));
+  const hasLoadedFromFile = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadMappingsFromFile().then((loaded) => {
+      if (cancelled) return;
+      hasLoadedFromFile.current = true;
+      if (loaded !== null) setMappings(loaded);
+    }).catch(() => {
+      if (!cancelled) hasLoadedFromFile.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedFromFile.current) return;
+    saveMappingsToFile(mappings);
+  }, [mappings]);
 
   const setMapping = useCallback((gesture: GestureType, action: Action) => {
     const complement = getSwipeComplement(gesture);
