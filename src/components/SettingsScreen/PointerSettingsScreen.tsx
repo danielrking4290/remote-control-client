@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
 import Slider from "@react-native-community/slider";
 import { faChevronLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { usePointerSettings } from "../../context/pointerSettingsContext";
 
 export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const { mouseAccelerationEnabled, setMouseAccelerationEnabled } = usePointerSettings();
     const [cursorSpeed, setCursorSpeed] = useState(50);
     const [holdDetectionThreshold, setHoldDetectionThreshold] = useState(50);
     const [tapDetectionThreshold, setTapDetectionThreshold] = useState(50);
@@ -20,6 +22,21 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
             </View>
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+                <View style={styles.section}>
+                    <View style={styles.toggleRow}>
+                        <Text style={styles.toggleLabel}>Mouse Acceleration</Text>
+                        <Switch
+                            value={mouseAccelerationEnabled}
+                            onValueChange={setMouseAccelerationEnabled}
+                            trackColor={{ false: "#505050", true: "#5a8f5a" }}
+                            thumbColor="#e8e8e8"
+                            ios_backgroundColor="#505050"
+                        />
+                    </View>
+                    <Text style={styles.helpText}>
+                        On: fast strokes travel farther. Off: 1:1 with your finger (small-move carry still applies).
+                    </Text>
+                </View>
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Cursor Speed</Text>
                     <Slider
@@ -106,6 +123,23 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#fff",
         marginBottom: 10,
+    },
+    toggleLabel: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#fff",
+        flex: 1,
+        marginRight: 12,
+    },
+    toggleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    helpText: {
+        fontSize: 14,
+        color: "#b0b0b0",
+        lineHeight: 20,
     },
     slider: {
         width: "100%",

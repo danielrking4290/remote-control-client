@@ -10,6 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { MainScreen } from "./src/components/MainScreen";
 import { SettingsScreen } from "./src/components/SettingsScreen/SettingsScreen";
 import { GestureMappingsProvider } from "./src/context/gestureMappingsContext";
+import { PointerSettingsProvider } from "./src/context/pointerSettingsContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SLIDE_DURATION = 300;
@@ -41,18 +42,20 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GestureMappingsProvider>
-        <View style={styles.container}>
-          <StatusBar style="light" />
-          <MainScreen onOpenSettings={openSettings} />
-          <Animated.View
-            style={[
-              styles.settingsOverlay,
-              { transform: [{ translateX: slideAnim }] },
-            ]}
-            pointerEvents={screen === "settings" ? "auto" : "none"}>
-            <SettingsScreen onBack={closeSettings} />
-          </Animated.View>
-        </View>
+        <PointerSettingsProvider>
+          <View style={styles.container}>
+            <StatusBar style="light" />
+            <MainScreen onOpenSettings={openSettings} />
+            <Animated.View
+              style={[
+                styles.settingsOverlay,
+                { transform: [{ translateX: slideAnim }] },
+              ]}
+              pointerEvents={screen === "settings" ? "auto" : "none"}>
+              <SettingsScreen onBack={closeSettings} />
+            </Animated.View>
+          </View>
+        </PointerSettingsProvider>
       </GestureMappingsProvider>
     </SafeAreaProvider>
   );

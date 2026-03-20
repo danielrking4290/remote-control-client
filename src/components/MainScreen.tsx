@@ -3,12 +3,28 @@ import { View, StyleSheet, TouchableOpacity, TextInput, Keyboard, PanResponder, 
 import { apiService } from "../services/api";
 import { useMutableValue } from "../hooks/useMutableValue";
 import { useGestureMappings } from "../context/gestureMappingsContext";
+import { usePointerSettings } from "../context/pointerSettingsContext";
 import type { Action, GestureType } from "../types/gestureMappings";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { faKeyboard, faGear } from '@fortawesome/free-solid-svg-icons';
 import type { Point } from "../interfaces/point";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+/** Touch speed (px/ms) at or below → 1:1 cursor mapping (predictable fine control). */
+const MOUSE_VELOCITY_PRECISION_MAX = 0.32;
+/** Touch speed (px/ms) at or above → full sweep boost. */
+const MOUSE_VELOCITY_SWEEP_MIN = 1.1;
+/** Gain for slow / careful movement (must stay 1 so the cursor matches the finger). */
+const MOUSE_GAIN_PRECISION = 1;
+/** Cursor delta multiplier for fast, large strokes. */
+const MOUSE_GAIN_SWEEP = 6;
+
+function mouseGainForTouchVelocity(velocityPxPerMs: number): number {
+  const span = MOUSE_VELOCITY_SWEEP_MIN - MOUSE_VELOCITY_PRECISION_MAX;
+  const t = Math.min(1, Math.max(0, (velocityPxPerMs - MOUSE_VELOCITY_PRECISION_MAX) / span));
+  return MOUSE_GAIN_PRECISION + t * (MOUSE_GAIN_SWEEP - MOUSE_GAIN_PRECISION);
+}
 
 export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSettings }) => {
   const MOUSE_DOWN_HOLD_THRESHOLD_MS = 750;
@@ -69,13 +85,19 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
   /** Total movement this gesture for one-finger (to distinguish tap vs swipe). */
   const oneFingerTotalDx = useMutableValue(0);
   const oneFingerTotalDy = useMutableValue(0);
+  /** Fractional scaled movement left over after integer mouse steps (avoids losing tiny drags). */
+  const mouseCarryX = useMutableValue(0);
+  const mouseCarryY = useMutableValue(0);
   /** Volume steps already sent this gesture (so we send continuously during swipe). */
   const volumeUpStepsSentThisGesture = useMutableValue(0);
   const volumeDownStepsSentThisGesture = useMutableValue(0);
 
   const { getActionForGesture } = useGestureMappings();
+  const { mouseAccelerationEnabled } = usePointerSettings();
   const getActionRef = useRef(getActionForGesture);
   getActionRef.current = getActionForGesture;
+  const mouseAccelerationEnabledRef = useRef(mouseAccelerationEnabled);
+  mouseAccelerationEnabledRef.current = mouseAccelerationEnabled;
 
   const runAction = useCallback((action: Action) => {
     switch (action) {
@@ -127,6 +149,8 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
       threeFingerSwipeDy.set(0);
       oneFingerTotalDx.set(0);
       oneFingerTotalDy.set(0);
+      mouseCarryX.set(0);
+      mouseCarryY.set(0);
       volumeUpStepsSentThisGesture.set(0);
       volumeDownStepsSentThisGesture.set(0);
       gestureEverHadMultipleFingers.set(false);
@@ -160,6 +184,8 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
         twoFingerSwipeDy.set(0);
         threeFingerSwipeDx.set(0);
         threeFingerSwipeDy.set(0);
+        mouseCarryX.set(0);
+        mouseCarryY.set(0);
         // Don't emit an action on the transition frame.
         lastMoveTime.set(Date.now());
         return;
@@ -200,19 +226,37 @@ export const MainScreen: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSe
           lastPosition.set(currentPosition);
         }
 
-        dx.set(Math.round(dx.get() + (currentPosition.x - lastPosition.get().x)));
-        dy.set(Math.round(dy.get() + (currentPosition.y - lastPosition.get().y)));
+        const rawDx = currentPosition.x - lastPosition.get().x;
+        const rawDy = currentPosition.y - lastPosition.get().y;
+
+        dx.set(Math.round(dx.get() + rawDx));
+        dy.set(Math.round(dy.get() + rawDy));
 
         if (dx.get() !== 0 || dy.get() !== 0) {
           switch (gestureState.numberActiveTouches) {
             case 1:
-              oneFingerTotalDx.set(oneFingerTotalDx.get() + (currentPosition.x - lastPosition.get().x));
-              oneFingerTotalDy.set(oneFingerTotalDy.get() + (currentPosition.y - lastPosition.get().y));
+              oneFingerTotalDx.set(oneFingerTotalDx.get() + rawDx);
+              oneFingerTotalDy.set(oneFingerTotalDy.get() + rawDy);
               // If the current gesture ever had 2+ fingers, we are in a multi-touch gesture
               // (e.g. 2-finger scroll). In that case, do not move the mouse when touch count
               // temporarily drops to 1, otherwise we get “wild jumps”.
               if (!gestureEverHadMultipleFingers.get()) {
-                apiService.moveMouse(dx.get(), dy.get());
+                const dist = Math.hypot(rawDx, rawDy);
+                const velocity = dist / Math.max(timeDiff, 1);
+                const gain = mouseAccelerationEnabledRef.current
+                  ? mouseGainForTouchVelocity(velocity)
+                  : 1;
+                mouseCarryX.set(mouseCarryX.get() + rawDx * gain);
+                mouseCarryY.set(mouseCarryY.get() + rawDy * gain);
+                const cx = mouseCarryX.get();
+                const cy = mouseCarryY.get();
+                const moveDx = Math.trunc(cx);
+                const moveDy = Math.trunc(cy);
+                mouseCarryX.set(cx - moveDx);
+                mouseCarryY.set(cy - moveDy);
+                if (moveDx !== 0 || moveDy !== 0) {
+                  apiService.moveMouse(moveDx, moveDy);
+                }
               }
               break;
             case 2: {

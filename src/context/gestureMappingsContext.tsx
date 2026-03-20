@@ -51,7 +51,7 @@ function isValidGestureMappings(obj: unknown): obj is GestureMappings {
 async function loadMappingsFromFile(): Promise<GestureMappings | null> {
   try {
     const path = FileSystem.documentDirectory + GESTURE_MAPPINGS_FILENAME;
-    const exists = await FileSystem.getInfoAsync(path, { size: false });
+    const exists = await FileSystem.getInfoAsync(path);
     if (!exists.exists) return null;
     const raw = await FileSystem.readAsStringAsync(path);
     const parsed = JSON.parse(raw) as unknown;
