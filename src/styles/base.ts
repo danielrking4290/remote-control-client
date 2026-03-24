@@ -144,6 +144,10 @@ export const baseStyles = StyleSheet.create({
         minWidth: 60,
         alignItems: "center",
         justifyContent: "center"
-
-    }
+    },
+    container: {
+        padding: 15,
+        backgroundColor: "#404040",
+        borderRadius: 10
+    },
 });

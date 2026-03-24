@@ -1,30 +1,39 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
 import Slider from "@react-native-community/slider";
 import { faChevronLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { usePointerSettings } from "../../context/pointerSettingsContext";
+import { baseStyles } from "../../styles/base";
 
 export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { mouseAccelerationEnabled, setMouseAccelerationEnabled } = usePointerSettings();
-    const [cursorSpeed, setCursorSpeed] = useState(50);
-    const [holdDetectionThreshold, setHoldDetectionThreshold] = useState(50);
-    const [tapDetectionThreshold, setTapDetectionThreshold] = useState(50);
+    const {
+        mouseAccelerationEnabled,
+        setMouseAccelerationEnabled,
+        cursorSpeed,
+        setCursorSpeed,
+        holdDetectionThreshold,
+        setHoldDetectionThreshold,
+        tapDetectionThreshold,
+        setTapDetectionThreshold,
+        resetPointerSettingsToDefaults,
+    } = usePointerSettings();
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <FontAwesomeIcon icon={faChevronLeft} size={24} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.title}>Pointer Settings</Text>
-                <View style={styles.headerSpacer} />
+        <View style={baseStyles.canvas}>
+            <View style={baseStyles.headingContainer}>
+                {onBack && (
+                    <TouchableOpacity style={baseStyles.headingBackButton} onPress={onBack}>
+                        <FontAwesomeIcon icon={faChevronLeft} size={24} color="white" />
+                    </TouchableOpacity>
+                )}
+                <Text style={baseStyles.headingText}>Pointer Settings</Text>
             </View>
 
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.section}>
+            <ScrollView contentContainerStyle={baseStyles.scrollViewContentContainer}>
+                <View style={baseStyles.container}>
                     <View style={styles.toggleRow}>
-                        <Text style={styles.toggleLabel}>Mouse Acceleration</Text>
+                        <Text style={baseStyles.subheadingText}>Mouse Acceleration</Text>
                         <Switch
                             value={mouseAccelerationEnabled}
                             onValueChange={setMouseAccelerationEnabled}
@@ -34,11 +43,11 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                         />
                     </View>
                     <Text style={styles.helpText}>
-                        On: fast strokes travel farther. Off: 1:1 with your finger (small-move carry still applies).
+                        When mouse acceleration is enabled, fast strokes will travel farther.{"\n\n"}When mouse acceleration is disabled, the cursor will track one-to-one with the gesture.
                     </Text>
                 </View>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Cursor Speed</Text>
+                <View style={baseStyles.container}>
+                    <Text style={baseStyles.subheadingText}>Cursor Speed</Text>
                     <Slider
                         style={styles.slider}
                         value={cursorSpeed}
@@ -51,8 +60,8 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                         maximumTrackTintColor="#dddddd"
                     />
                 </View>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Hold Detection Threshold</Text>
+                <View style={baseStyles.container}>
+                    <Text style={baseStyles.subheadingText}>Hold Detection Threshold</Text>
                     <Slider
                         style={styles.slider}
                         value={holdDetectionThreshold}
@@ -64,9 +73,12 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                         minimumTrackTintColor="#dddddd"
                         maximumTrackTintColor="#dddddd"
                     />
+                    <Text style={styles.helpText}>
+                        This slider adjusts the duration it is necessary to hold down a one finger tap before it is interpreted as a sustained left click.
+                    </Text>
                 </View>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tap Detection Threshold</Text>
+                <View style={baseStyles.container}>
+                    <Text style={baseStyles.subheadingText}>Tap Detection Threshold</Text>
                     <Slider
                         style={styles.slider}
                         value={tapDetectionThreshold}
@@ -78,46 +90,29 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                         minimumTrackTintColor="#dddddd"
                         maximumTrackTintColor="#505050"
                     />
+                    <Text style={styles.helpText}>
+                        This slider adjusts how generously tap events are interpreted as left clicks.
+                        {"\n\n"}
+                        A lower threshold will cause only very quick taps to be interpreted as clicks.
+                        {"\n\n"}
+                        A higher threshold will allow for a longer duration between the start of a tap and release to be interpreted as a click.
+                    </Text>
                 </View>
+                <TouchableOpacity
+                    style={[baseStyles.textButton, styles.resetToDefaultsButton]}
+                    onPress={resetPointerSettingsToDefaults}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reset pointer settings to defaults"
+                >
+                    <Text style={baseStyles.bodyText}>Reset to Defaults</Text>
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#323232",
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderBottomWidth: 1,
-        borderBottomColor: "#404040",
-    },
-    backButton: {
-        padding: 10,
-        minWidth: 44,
-    },
-    title: {
-        fontSize: 24,
-        flex: 1,
-        textAlign: "center",
-        color: "white",
-    },
-    headerSpacer: {
-        minWidth: 44,
-    },
-    scroll: {
-        flex: 1,
-    },
-    scrollContent: {
-        gap: 10,
-        padding: 16,
-    },
-    section: {
-        marginBottom: 8,
-    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: "600",
@@ -129,7 +124,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#fff",
         flex: 1,
-        marginRight: 12,
+        marginRight: 12
     },
     toggleRow: {
         flexDirection: "row",
@@ -144,5 +139,9 @@ const styles = StyleSheet.create({
     slider: {
         width: "100%",
         height: 40,
+    },
+    resetToDefaultsButton: {
+        marginTop: 10,
+        alignSelf: "stretch",
     },
 });
