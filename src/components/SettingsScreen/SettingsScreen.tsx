@@ -42,24 +42,29 @@ export const SettingsScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) =>
                         <Text style={baseStyles.headingText}>Settings</Text>
                     </View>
                     <ScrollView
-                        contentContainerStyle={baseStyles.scrollViewContentContainer}>
-                        <TouchableOpacity
-                            style={baseStyles.menuItem}
-                            onPress={() => setSubScreen("gestureMappings")}
-                            activeOpacity={0.7}>
-                            <View style={baseStyles.menuItemLabel}>
-                                <Image source={require("../../../resources/images/oneFinger.png")} style={{ width: 25, height: 25 }} />
-                                <Text style={baseStyles.bodyText}>Gesture Mappings</Text>
-                            </View>
-                            <FontAwesomeIcon icon={faChevronRight} size={20} color="#aaaaaa" />
-                        </TouchableOpacity>
+                        style={baseStyles.scrollView}
+                        contentContainerStyle={baseStyles.scrollViewContentContainer}
+                        showsVerticalScrollIndicator
+                        bounces={false} // For iOS
+                        overScrollMode="never" // For Android
+                    >
                         <TouchableOpacity
                             style={baseStyles.menuItem}
                             onPress={() => setSubScreen("pointerSettings")}
                             activeOpacity={0.7}>
                             <View style={baseStyles.menuItemLabel}>
-                                <FontAwesomeIcon icon={faArrowPointer} size={20} color="#ffffff" />
+                                <FontAwesomeIcon icon={faArrowPointer} size={25} color="#ffffff" />
                                 <Text style={baseStyles.bodyText}>Pointer Settings</Text>
+                            </View>
+                            <FontAwesomeIcon icon={faChevronRight} size={20} color="#aaaaaa" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={baseStyles.menuItem}
+                            onPress={() => setSubScreen("gestureMappings")}
+                            activeOpacity={0.7}>
+                            <View style={baseStyles.menuItemLabel}>
+                                <Image source={require("../../../resources/images/oneFinger.png")} style={baseStyles.menuItemIcon} />
+                                <Text style={baseStyles.bodyText}>Gesture Mappings</Text>
                             </View>
                             <FontAwesomeIcon icon={faChevronRight} size={20} color="#aaaaaa" />
                         </TouchableOpacity>
@@ -68,7 +73,7 @@ export const SettingsScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) =>
                             onPress={() => setSubScreen("deviceSelection")}
                             activeOpacity={0.7}>
                             <View style={baseStyles.menuItemLabel}>
-                                <FontAwesomeIcon icon={faComputer} size={20} color="#ffffff" />
+                                <FontAwesomeIcon icon={faComputer} size={25} color="#ffffff" />
                                 <Text style={baseStyles.bodyText}>Device Selection</Text>
                             </View>
                             <FontAwesomeIcon icon={faChevronRight} size={20} color="#aaaaaa" />

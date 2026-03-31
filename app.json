@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Remote Control",
+    "slug": "remotecontrolapp",
+    "ios": {
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Find computers on your Wi‑Fi that are running the remote control server."
+      }
+    },
+    "android": {
+      "usesCleartextTraffic": true
+    }
+  }
+}

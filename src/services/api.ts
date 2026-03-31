@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { Point } from '../interfaces/point';
-const API_BASE_URL = 'http://192.168.50.119:3000';
+
+/** Default remote server (used before settings are loaded or after reset). */
+export const DEFAULT_SERVER_BASE_URL = 'http://192.168.50.119:3000';
 
 export interface TypeKeyResponse {
   message: string;
@@ -9,8 +11,16 @@ export interface TypeKeyResponse {
 class ApiService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl: string = DEFAULT_SERVER_BASE_URL) {
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  setBaseUrl(url: string): void {
+    this.baseUrl = url.replace(/\/+$/, '');
   }
 
   async moveMouse(dx: number, dy: number): Promise<void> {

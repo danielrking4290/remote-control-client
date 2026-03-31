@@ -5,6 +5,7 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    Pressable,
     Modal,
     Image,
     type ImageStyle,
@@ -103,11 +104,15 @@ export const GestureMappingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
             </View>
 
             <ScrollView
+                style={baseStyles.scrollView}
                 contentContainerStyle={baseStyles.scrollViewContentContainer}
-                showsVerticalScrollIndicator>
+                showsVerticalScrollIndicator
+                bounces={false} // For iOS
+                overScrollMode="never" // For Android
+            >
                 {GestureOptions.map((gesture) => (
-                    <View key={gesture.id} style={styles.gestureMappingForm}>
-                        <View style={styles.gestureLabel}>
+                    <View key={gesture.id} style={baseStyles.mappingFormControl}>
+                        <View style={baseStyles.mappingFormLabel}>
                             <View style={baseStyles.menuItemLabel}>
                                 <Image source={getIconForGesture(gesture.id)} style={baseStyles.menuItemIcon} />
 
@@ -116,20 +121,20 @@ export const GestureMappingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                         </View>
 
                         <TouchableOpacity
-                            style={styles.actionButton}
+                            style={baseStyles.mappingFormActionButton}
                             onPress={() => setPickerGesture(gesture.id)}
                             activeOpacity={0.7}>
-                            <View style={styles.actionIconContainer}>
+                            <View style={baseStyles.mappingFormActionIconContainer}>
                                 <Image source={getIconForAction(mappings[gesture.id])} style={getStyleClassForAction(mappings[gesture.id])} />
                             </View>
-                            <View style={styles.actionLabelContainer}>
+                            <View style={baseStyles.mappingFormActionLabelContainer}>
                                 <Text
                                     style={baseStyles.bodyText}
                                     numberOfLines={1}>
                                     {getActionLabel(mappings[gesture.id])}
                                 </Text>
                             </View>
-                            <View style={styles.chevronIconContainer}>
+                            <View style={baseStyles.mappingFormChevronIconContainer}>
                                 <FontAwesomeIcon icon={faChevronRight} size={15} color="#aaaaaa" />
                             </View>
                         </TouchableOpacity>
@@ -149,10 +154,11 @@ export const GestureMappingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                 transparent
                 animationType="slide"
                 onRequestClose={() => setPickerGesture(null)}>
-                <TouchableOpacity
-                    style={baseStyles.modalBackdrop}
-                    activeOpacity={1}
-                    onPress={() => setPickerGesture(null)}>
+                <View style={baseStyles.modalBackdrop}>
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onPress={() => setPickerGesture(null)}
+                    />
                     <View style={baseStyles.modalContent}>
                         <View style={baseStyles.modalHeader}>
                             <Image source={getIconForGesture(pickerGesture!)} style={baseStyles.menuItemIcon} />
@@ -160,8 +166,8 @@ export const GestureMappingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                             <Text style={baseStyles.subheadingText}>{GestureOptions.find((g) => g.id === pickerGesture)?.label}</Text>
                         </View>
                         <ScrollView
-                            style={styles.modalScrollView}
-                            contentContainerStyle={styles.modalScrollContent}
+                            style={baseStyles.modalScrollView}
+                            contentContainerStyle={baseStyles.modalScrollContent}
                             showsVerticalScrollIndicator>
                             {ActionOptions.filter((action) => {
                                 // Scroll actions can only be mapped to swipe gestures
@@ -212,59 +218,13 @@ export const GestureMappingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                             </TouchableOpacity>
                         </View>
                     </View>
-                </TouchableOpacity>
+                </View>
             </Modal>
         </>
     );
 };
 
 const styles = StyleSheet.create({
-    modalScrollView: {
-        flexGrow: 0,
-    },
-    modalScrollContent: {
-        paddingBottom: 20,
-        gap: 5,
-    },
-    scrollContent: {
-        padding: 15,
-        backgroundColor: "#323232",
-    },
-    gestureMappingForm: {
-        flexDirection: "row",
-        flex: 1,
-        backgroundColor: "#404040",
-        height: 70,
-        borderRadius: 8
-    },
-    gestureLabel: {
-        flexDirection: "row",
-        flex: 2,
-        margin: 10
-    },
-    actionButton: {
-        flexDirection: "row",
-        flex: 3,
-        backgroundColor: "#505050",
-        margin: 5,
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderTopRightRadius: 8,
-        borderBottomRightRadius: 8
-    },
-    actionIconContainer: {
-        alignItems: "center",
-        justifyContent: "center",
-        flex: 2
-    },
-    actionLabelContainer: {
-        display: "flex",
-        flexDirection: "row",
-        flex: 4
-    },
-    chevronIconContainer: {
-        alignItems: "center",
-        justifyContent: "center",
-        flex: 1
-    }
+    
+    
 });

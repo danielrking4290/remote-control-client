@@ -30,7 +30,13 @@ export const PointerSettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack
                 <Text style={baseStyles.headingText}>Pointer Settings</Text>
             </View>
 
-            <ScrollView contentContainerStyle={baseStyles.scrollViewContentContainer}>
+            <ScrollView
+                style={baseStyles.scrollView}
+                contentContainerStyle={baseStyles.scrollViewContentContainer}
+                showsVerticalScrollIndicator
+                bounces={false} // For iOS
+                overScrollMode="never" // For Android
+            >
                 <View style={baseStyles.container}>
                     <View style={styles.toggleRow}>
                         <Text style={baseStyles.subheadingText}>Mouse Acceleration</Text>

@@ -7,14 +7,13 @@ export const baseStyles = StyleSheet.create({
     },
     canvas: {
         flex: 1,
-        backgroundColor: "#303030"
+        backgroundColor: "#090909",
+        borderRadius: 16
     },
     headingContainer: {
         flexDirection: "row",
         alignItems: "center",
-        borderBottomWidth: 1,
-        borderBottomColor: "#404040",
-        backgroundColor: "#303030",
+        backgroundColor: "#090909",
         height: 70
     },
     bodyText: {
@@ -43,16 +42,16 @@ export const baseStyles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 15,
-        borderRadius: 8,
-        backgroundColor: "#404040",
+        borderRadius: 16,
+        backgroundColor: "#303030",
         height: 70
     },
     textButtonSelected: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: 8,
-        backgroundColor: "#707070"
+        borderRadius: 16,
+        backgroundColor: "#404040"
     },
     buttonLabelContainer: {
         flexDirection: "row",
@@ -72,10 +71,23 @@ export const baseStyles = StyleSheet.create({
     buttonLabelTextContainer: {
         flex: 8
     },
+    scrollView: {
+        flex: 1,
+        borderRadius: 16,
+        marginLeft: 15,
+        marginRight: 15
+    },
     scrollViewContentContainer: {
-        padding: 15,
-        backgroundColor: "#303030",
-        gap: 5
+        backgroundColor: "#090909",
+        gap: 10
+    },
+    modalScrollView: {
+        flex: 1,
+        borderRadius: 16
+    },
+    modalScrollContent: {
+        paddingBottom: 20,
+        gap: 5,
     },
     modalBackdrop: {
         flex: 1,
@@ -99,7 +111,7 @@ export const baseStyles = StyleSheet.create({
         height: 70
     },
     modalFooter: {
-        height: 70,
+        height: 60,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#202020"
@@ -113,9 +125,9 @@ export const baseStyles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        backgroundColor: "#404040",
+        backgroundColor: "#202020",
         padding: 15,
-        borderRadius: 8,
+        borderRadius: 16,
         height: 70
     },
     menuItemIcon: {
@@ -147,7 +159,44 @@ export const baseStyles = StyleSheet.create({
     },
     container: {
         padding: 15,
-        backgroundColor: "#404040",
-        borderRadius: 10
+        backgroundColor: "#202020",
+        borderRadius: 16
     },
+    mappingFormControl: {
+        flexDirection: "row",
+        flex: 1,
+        backgroundColor: "#202020",
+        height: 70,
+        borderRadius: 16
+    },
+    mappingFormActionButton: {
+        flexDirection: "row",
+        flex: 3,
+        backgroundColor: "#353535",
+        margin: 5,
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderTopRightRadius: 16,
+        borderBottomRightRadius: 16
+    },
+    mappingFormActionIconContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        flex: 2
+    },
+    mappingFormActionLabelContainer: {
+        display: "flex",
+        flexDirection: "row",
+        flex: 4
+    },
+    mappingFormLabel: {
+        flexDirection: "row",
+        flex: 2,
+        margin: 10
+    },
+    mappingFormChevronIconContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        flex: 1
+    }
 });
